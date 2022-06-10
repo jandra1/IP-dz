@@ -12,7 +12,6 @@ class T(TipoviTokena):
 	OTV, ZATV, TOČKAZAREZ, PLUS, MINUS, PUTA, KROZ, MANJE, VEĆE, JEDNAKO = '();+-*/<>='
 	MANJEJ, VEĆEJ, JEDNAKOJ, RAZLIČITO = '<=','>=', '==', '!='
 	NAVODNICI = '"'
-	KOMENTAR = '\\'
 	class BROJ(Token):
 		#def vrijednost(self): return
 		pass
@@ -36,9 +35,24 @@ def snail(lex):
 		elif znak.isdecimal():
 			lex.prirodni_broj(znak)
 			yield lex.token(T.BROJ)
+		elif znak == '\\':
+			if lex >= '\\': 
+				lex - '\n'
+				lex.zanemari()
+		# ako naiđe na znak '#' onda zanemari sav tekst dok ne pročita ponovno znak '#'
+		elif znak == '#':
+			lex.pročitaj_do('#', uključivo=True, više_redova=True)
+			lex.zanemari()
 		else: yield lex.literal(T)
 
-test = 'print var2 = 3 + var1 * 4 / 73 - b1'
+test = '''#ovo je komentar
+
+asdasdasd#
+a = 3+5 - /  !=   
+'''
+
+
+
 snail(test)
 
 
