@@ -6,7 +6,7 @@ Napravili: Ivona Čižić, Barbara Posavec, Luka Jandrijević
 TODO: - osmislit novi konačni ili beskonačni tip podatka koji nije uobičajen u drugim programskim jezicima
 	  - unarne, binarne, terarne operatore nad tim tipom
 	  - unos s tipkovnice u varijable ( napravljeno u 21_BASIC.py )
-	  - implicitno pretvaranje među tipovima ( napravljeno u 21_BASIC.py za neke )
+	  - implicitno pretvaranje među tipovima
 '''
 
 from vepar import *
@@ -57,12 +57,10 @@ def snail(lex):
 		else: yield lex.literal(T)
 
 ### BKG za jezik:
-# start = program -> naredba program | naredba  
-# naredba -> def_funkcija | naredbe_lista
-# naredbe_lista -> naredbe naredbe_lista
-# def_funkcija -> DEF ime OTV parametri ZATV JEDNAKO VOTV naredbe VZATV
-# parametri -> '' | ime | parametri ZAREZ ime
-# naredbe -> pridruži | print_naredba | if_naredba | funkcija_zovi 
+# start = program = naredbe_lista -> naredbe | naredbe_lista naredbe 
+# def_funkcija -> DEF IME OTV parametri ZATV JEDNAKO VOTV naredbe_lista RETURN argument VZATV
+# parametri -> '' | IME | parametri ZAREZ IME
+# naredbe -> pridruži | print_naredba | if_naredba | funkcija_zovi | def_funkcija
 # pridruži -> IME JEDNAKO aritm TOČKAZAREZ
 # print_naredba -> PRINT aritm TOČKAZAREZ | PRINT TEKST TOČKAZAREZ | PRINT NEWLINE TOČKAZAREZ 
 # if_naredba -> IF aritm THEN naredbe_lista ENDIF | IF aritm THEN naredbe_lista ELSE naredbe_lista ENDIF
@@ -75,6 +73,9 @@ def snail(lex):
 
 
 ###TODO: provjerit BKG jel dobra
+
+class P(Parser):
+	def program(p):		
 
 
 test = '''#ovo je komentar
