@@ -58,15 +58,18 @@ def snail(lex):
 
 ### BKG za jezik:
 # start = program = naredbe_lista -> naredbe | naredbe_lista naredbe 
+# naredbe -> pridruži | print_naredba | if_naredba | funkcija_zovi | def_funkcija | unos
 # def_funkcija -> DEF IME OTV parametri ZATV JEDNAKO VOTV naredbe_lista RETURN argument VZATV
 # parametri -> '' | IME | parametri ZAREZ IME
-# naredbe -> pridruži | print_naredba | if_naredba | funkcija_zovi | def_funkcija
-# pridruži -> IME JEDNAKO aritm TOČKAZAREZ
-# print_naredba -> PRINT aritm TOČKAZAREZ | PRINT TEKST TOČKAZAREZ | PRINT NEWLINE TOČKAZAREZ 
+# unos -> UNOS IME
+# pridruži -> IME JEDNAKO broj TOČKAZAREZ
+# print_naredba -> PRINT broj TOČKAZAREZ | PRINT TEKST TOČKAZAREZ | PRINT NEWLINE TOČKAZAREZ 
 # if_naredba -> IF aritm THEN naredbe_lista ENDIF | IF aritm THEN naredbe_lista ELSE naredbe_lista ENDIF
+# broj -> aritm usporedba aritm | aritm 
+# usporedba -> MANJE | VEĆE | JEDNAKO | MANJEJ | VEĆEJ | JEDNAKOJ | RAZLIČITO
 # aritm -> član | aritm PLUS član | aritm MINUS član
 # član -> faktor | član PUTA faktor | član KROZ faktor
-# faktor -> BROJ | IME | IME poziv | MINUS faktor | OTV aritm ZATV
+# faktor -> BROJ | IME | CALL IME poziv | MINUS faktor | OTV broj ZATV
 # poziv -> OTV ZATV | OTV argumenti ZATV
 # argumenti -> argument | argumenti ZAREZ argument
 # argument -> aritm | [!KONTEKST] - potrebno za rekurziju
