@@ -9,6 +9,7 @@ TODO: - osmislit novi konačni ili beskonačni tip podatka koji nije uobičajen 
 '''
 
 from vepar import *
+import fractions
 
 class T(TipoviTokena):
 	PRINT, IF, ELSE, THEN= 'print', 'if', 'else', 'then' 
@@ -75,8 +76,6 @@ def snail(lex):
 # argument -> aritm | [!KONTEKST] - potrebno za rekurziju
 
 
-###TODO: provjerit BKG jel dobra
-
 class P(Parser):
 	def start(p) -> 'Program': 
 		return Program(p.naredbe_lista())
@@ -122,6 +121,11 @@ class P(Parser):
 		p >> T.INPUT
 		return Inpt(p >> T.IME)
 
+	def def_funkcija(p):
+		return
+
+	def funkcija_zovi(p): 
+		return
 
 	def broj(p) -> 'Usporedba|aritm':
 		prvi = p.aritm()
@@ -133,9 +137,13 @@ class P(Parser):
 					manje = u
 				elif u ^ T.VEĆE: 
 					veće = u
-				elif u ^ T.JEDNAKO: 
+				elif u ^ T.JEDNAKOJ: 
 					jednako = u
-				return Usporedba(prvi, p.aritm(), manje, veće, jednako)
+				elif u ^ T.VEĆEJ:
+					većej = u
+				elif u ^ T.MANJEJ:
+					manjej = u
+				return Usporedba(prvi, p.aritm(), manje, veće, jednako, većej, manjej)
 		else: 
 			return prvi
 
@@ -158,12 +166,90 @@ class P(Parser):
 		else: return p >> {T.BROJ, T.IME}
 
 
+### AST
+# Program: naredbe_lista: [naredbe]
+# naredbe_lista: Inpt: varijabla:IME
+#				 Pridruži: varijabla:IME što:broj
+#				 Print: tipvar:broj|TEKST|NEWLINE
+#				 If: uvjet:broj onda:[naredbe_lista] inače:[naredbe_lista]
+# broj: Usporedba: lijevo:broj desno: broj
+#				   manje: MANJE? veće: VEĆE? jednako: JEDNAKO? manjej: MANJEJ? većej: VEĆEJ? 
+#		Osnovna: operacija:PLUS|MINUS|PUTA|KROZ lijevo:broj desno:broj
+#		Suprotan: od: broj
+#		BROJ: Token
+#		IME: Token
 
-class Program(AST): pass
-class Pridruži(AST): pass
-class If(AST): pass
-class Print(AST): pass
 
+class Program(AST): 
+	naredbe_lista: 'naredbe*'
+	def izvrši(program):
+		rt.memorija = Memorija()
+		for naredbe in program.naredbe_lista: naredbe.izvrši()
+
+class Inpt(AST):
+	varijabla: 'IME'
+	def izvrši(unos):
+		v = unos.varijabla
+		prompt = f'\t{v.sadržaj}? '
+		while ...:
+			t = input(prompt)
+			try: rt.memorija[v] = fractions.Fraction(t)
+			except ValueError: print(end='Ovo nije racionalni broj ')
+			else: break
+
+
+class Pridruži(AST):
+	pass
+
+class If(AST): 
+	uvjet: 'broj'
+	onda: 'naredbe*'
+	inače: 'naredbe*'
+	def izvrši(grananje):
+		b = grananje.uvjet.vrijednost()
+		if b == ~0: sljedeći = grananje.onda
+		elif b == 0: sljedeći = grananje.inače
+		else: raise GreškaIzvođenja('Pogreška u if naredbi')
+		for naredba in sljedeći: naredba.izvrši()
+
+
+
+class Print(AST):
+	tipvar: 'broj|TEKST|NEWLINE'
+	def izvrši(ispis):
+		if ispis.tipvar ^ T.NEWLINE: print()
+		else:
+			t = ispis.tipvar.vrijednost()
+			if isinstance(t, fractions.Fraction): t = str(t).replace('/', '÷')
+			print(t, end=' ')
+
+
+class Usporedba(AST):
+	lijevo: 'broj'
+	desno: 'broj'
+	manje: 'MANJE?'
+	veće: 'VEĆE?'
+	jednako: 'JEDNAKOJ?'
+	većej: 'VEĆEJ?'
+	manjej: 'MANJEJ?'
+	def vrijednost(self):
+		l, d = self.lijevo.vrijednost(), self.desno.vrijednost()
+		return -((self.manje and l < d) or (self.jednako and l == d) or (self.veće and l > d) or (self.manjej and l <= d) or (self.većej and l >= d) or False)
+
+class Osnovna(AST):
+	operacija: 'T'
+	lijevo: 'broj'
+	desno: 'broj'
+	def vrijednost(self):
+		l, d = self.lijevo.vrijednost(), self.desno.vrijednost()
+		o = self.operacija
+		if o ^ T.PLUS: return l + d
+		elif o ^ T.MINUS: return l - d
+		elif o ^ T.PUTA: return l * d
+		elif o ^ T.KROZ:
+			if d: return fractions.Fraction(l, d)
+			else: raise o.iznimka('Nazivnik je nula!')
+		else: assert False, f'Nepokrivena binarna operacija {o}'
 
 
 test = '''#ovo je komentar
@@ -175,14 +261,17 @@ exprs = 1 + 3/4 <= 1 >= > = ==
 //sve radi kako treba za sada
 '''
 
-ParsTest = '''
-print NEWLINE;
-print "ovo je string";
-print 3+5;
-'''
+ParsTest =P('''print "ovo je string";
+print newline;
+print 3/6 + 3/6;
+''')
 
-snail(test)
-#P(ParsTest)
-#prikaz(ParsTest)
+#snail(test)
+#snail('''print "ovo je string";
+#print newline;
+#print 3+5;
+#	''')
+prikaz(ParsTest)
+ParsTest.izvrši()
 
 
