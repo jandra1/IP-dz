@@ -112,8 +112,8 @@ class P(Parser):
 		p >> T.THEN
 		onda = p.naredbe_lista()
 		inače = []
-		if p >= P.ELSE:
-			onda = p.naredbe_lista()
+		if p >= T.ELSE:
+			inače = p.naredbe_lista()
 		p >> T.ENDIF
 		return If(uvjet, onda, inače)
 
@@ -130,20 +130,21 @@ class P(Parser):
 	def broj(p) -> 'Usporedba|aritm':
 		prvi = p.aritm()
 		usporedba = {T.MANJE, T.MANJEJ, T.VEĆE, T.VEĆEJ, T.JEDNAKOJ, T.RAZLIČITO}
-		manje = veće = jednako = nenavedeno
-		if p > usporedba:
-			while u := p >= usporedba:
-				if u ^ T.MANJE: 
-					manje = u
-				elif u ^ T.VEĆE: 
-					veće = u
-				elif u ^ T.JEDNAKOJ: 
-					jednako = u
-				elif u ^ T.VEĆEJ:
-					većej = u
-				elif u ^ T.MANJEJ:
-					manjej = u
-				return Usporedba(prvi, p.aritm(), manje, veće, jednako, većej, manjej)
+		manje = veće = jednako = većej = manjej = različito = nenavedeno
+		if u := p >= usporedba:
+			if u ^ T.MANJE: 
+				manje = u
+			elif u ^ T.VEĆE: 
+				veće = u
+			elif u ^ T.JEDNAKOJ: 
+				jednako = u
+			elif u ^ T.VEĆEJ:
+				većej = u
+			elif u ^ T.MANJEJ:
+				manjej = u
+			elif u ^ T.RAZLIČITO:
+				različito = u
+			return Usporedba(prvi, p.aritm(), manje, veće, jednako, većej, manjej, različito)
 		else: 
 			return prvi
 
@@ -235,9 +236,10 @@ class Usporedba(AST):
 	jednako: 'JEDNAKOJ?'
 	većej: 'VEĆEJ?'
 	manjej: 'MANJEJ?'
+	različito: 'RAZLIČITO?'
 	def vrijednost(self):
 		l, d = self.lijevo.vrijednost(), self.desno.vrijednost()
-		return -((self.manje and l < d) or (self.jednako and l == d) or (self.veće and l > d) or (self.manjej and l <= d) or (self.većej and l >= d) or False)
+		return -((self.manje and l < d) or (self.jednako and l == d) or (self.veće and l > d) or (self.manjej and l <= d) or (self.većej and l >= d) or (self.različito and l != d) or False)
 
 class Osnovna(AST):
 	operacija: 'T'
@@ -255,25 +257,19 @@ class Osnovna(AST):
 		else: assert False, f'Nepokrivena binarna operacija {o}'
 
 
-test = '''#ovo je komentar
-
-asdasdasd#
-//jednolinijski komentar
-print "neki tekst";
-exprs = 1 + 3/4 <= 1 >= > = ==  
-//sve radi kako treba za sada
+test = '''a = 5+5;
+if 1 >= 5 then print a; else print 3+2; endif
+print newline;
 '''
 
+
 ParsTest =P('''a = 5+5;
+if 1 != 5 then print a; else print 3+2; endif
 print newline;
-print a;
 ''')
 
 #snail(test)
-#snail('''print "ovo je string";
-#print newline;
-#print 3+5;
-#	''')
+
 prikaz(ParsTest)
 ParsTest.izvrši()
 
