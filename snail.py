@@ -93,7 +93,7 @@ class P(Parser):
 
 	def pridruži(p) -> 'Pridruži':
 		varijabla = p >> T.IME
-		p >> JEDNAKO
+		p >> T.JEDNAKO
 		pridruženo = p.broj()
 		p >> T.TOČKAZAREZ
 		return Pridruži(varijabla, pridruženo)
@@ -199,7 +199,10 @@ class Inpt(AST):
 
 
 class Pridruži(AST):
-	pass
+	varijabla: 'IME'
+	što: 'broj'
+	def izvrši(self):
+		rt.memorija[self.varijabla] = self.što.vrijednost()
 
 class If(AST): 
 	uvjet: 'broj'
@@ -261,9 +264,9 @@ exprs = 1 + 3/4 <= 1 >= > = ==
 //sve radi kako treba za sada
 '''
 
-ParsTest =P('''print "ovo je string";
+ParsTest =P('''a = 5+5;
 print newline;
-print 3/6 + 3/6;
+print a;
 ''')
 
 #snail(test)
