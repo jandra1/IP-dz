@@ -6,6 +6,10 @@ Napravili: Ivona Čižić, Barbara Posavec, Luka Jandrijević
 TODO: - osmislit novi konačni ili beskonačni tip podatka koji nije uobičajen u drugim programskim jezicima
 	  - unarne, binarne, terarne operatore nad tim tipom
 	  - implicitno pretvaranje među tipovima
+
+
+Overleaf link za dokumentaciju: https://www.overleaf.com/3936359378pqggjhqxwqmw
+
 '''
 
 from vepar import *
