@@ -235,7 +235,7 @@ class P(Parser):
 		else: return p >> {T.BROJ, T.IME, T.DA, T.MOŽDA, T.NE}
 
 def izvrši(funkcije, *argv):
-    print('Program je vratio:', funkcije['program'].pozovi(argv))
+    print('Program je vratio:', funkcije['main'].pozovi(argv))
 
 ### AST
 # Funkcija: ime: IME parametri:[IME] tijelo:naredbe_lista
@@ -312,7 +312,7 @@ class Inpt(AST):
 		prompt = f'\t{v.sadržaj}? '
 		while ...:
 			t = input(prompt)
-			try: rt.memorija[v] = fractions.Fraction(t)
+			try: mem[v] = fractions.Fraction(t)
 			except ValueError: print(end='Ovo nije racionalni broj ')
 			else: break
 
@@ -321,27 +321,26 @@ class Pridruži(AST):
 	varijabla: 'IME'
 	što: 'broj'
 	def izvrši(self, mem, unutar):
-		rt.memorija[self.varijabla] = self.što.vrijednost(mem, unutar)
+		mem[self.varijabla] = self.što.vrijednost(mem, unutar)
 
 class If(AST): 
 	uvjet: 'broj'
 	onda: 'naredbe*'
 	inače: 'naredbe*'
 	def izvrši(grananje, mem, unutar):
-		b = grananje.uvjet.vrijednost()
-		if b == 1: sljedeći = grananje.onda
-		elif b == 0: sljedeći = grananje.inače
+		b = grananje.uvjet.vrijednost(mem, unutar)
+		if b == 1: sljedeći = grananje.onda.izvrši(mem,unutar)
+		elif b == 0: sljedeći = grananje.inače.izvrši(mem,unutar)
 		else: raise GreškaIzvođenja('Pogreška u if naredbi')
-		for naredba in sljedeći: naredba.izvrši()
 
 
 
 class Print(AST):
 	tipvar: 'broj|TEKST|NEWLINE'
-	def izvrši(ispis, mem, unutar):
-		if ispis.tipvar ^ T.NEWLINE: print()
+	def izvrši(self, mem, unutar):
+		if self.tipvar ^ T.NEWLINE: print()
 		else:
-			t = ispis.tipvar.vrijednost(mem, unutar)
+			t = self.tipvar.vrijednost(mem, unutar)
 			if isinstance(t, fractions.Fraction): t = str(t).replace('/', '÷')
 			print(t, end=' ')
 
@@ -394,7 +393,7 @@ print c
 '''
 
 
-ParsTest =P('''program() = {print "bok"; return 4;}''')
+ParsTest =P('''main() = {if 1 > 4 then {a = 4; print a;} else {b = 4; print b;} endif; return 1;}''')
 
 snail(test)
 
