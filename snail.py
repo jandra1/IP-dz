@@ -177,7 +177,7 @@ class P(Parser):
 	def faktor(p) -> 'Suprotan|broj|BROJ|IME':
 		if p >= T.MINUS: return Suprotan(p.faktor())
 		elif p >= T.OTV:
-			zagrada = p.aritm()
+			zagrada = p.broj()
 			p >> T.ZATV
 			return zagrada
 		else: return p >> {T.BROJ, T.IME}
@@ -256,7 +256,9 @@ class Usporedba(AST):
 	različito: 'RAZLIČITO?'
 	def vrijednost(self):
 		l, d = self.lijevo.vrijednost(), self.desno.vrijednost()
-		return -((self.manje and l < d) or (self.jednako and l == d) or (self.veće and l > d) or (self.manjej and l <= d) or (self.većej and l >= d) or (self.različito and l != d) or False)
+		if ((self.manje and l < d) or (self.jednako and l == d) or (self.veće and l > d) or 
+			(self.manjej and l <= d) or (self.većej and l >= d) or (self.različito and l != d)): return 1
+		else: return 0
 
 class Osnovna(AST):
 	operacija: 'T'
@@ -285,13 +287,13 @@ class Unarni(AST):
 			return (o-1)
 		
 test = '''a = 1;
-c = a++;
+c = 1+4*(a > 2);
 print c;
 '''
 
 
-ParsTest =P('''a = 1/2;
-c =5+a++;
+ParsTest =P('''a = 1;
+c = 1+4*(a < 2);
 print c;
 ''')
 
