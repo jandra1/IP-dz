@@ -22,6 +22,7 @@ class T(TipoviTokena):
 	MANJEJ, VEĆEJ, JEDNAKOJ, RAZLIČITO = '<=','>=', '==', '!='
 	NAVODNICI, RETURN, CALL, DEF, INPUT = '"', 'return', 'call', 'def', 'inpt'
 	VOTV, VZATV, ZAREZ = '{},'
+	PLUSP, MINUSM = '++', '--'
 	class BROJ(Token):
 		def vrijednost(t): return fractions.Fraction(t.sadržaj)
 	class IME(Token):
@@ -37,6 +38,8 @@ def snail(lex):
 		elif znak == '<': yield lex.token(T.MANJEJ if lex >= '=' else T.MANJE)
 		elif znak == '>': yield lex.token(T.VEĆEJ if lex >= '=' else T.VEĆE)
 		elif znak == '=': yield lex.token(T.JEDNAKOJ if lex >= '=' else T.JEDNAKO)
+		elif znak == '+': yield lex.token(T.PLUSP if lex >= '+' else T.PLUS)
+		elif znak == '-': yield lex.token(T.MINUSM if lex >= '-' else T.MINUS)
 		elif znak == '!':
 			if lex >= '=': yield lex.token(T.RAZLIČITO)
 			else: raise lex.greška('iza znaka "!" mora slijediti znak "="')
@@ -70,11 +73,12 @@ def snail(lex):
 # pridruži -> IME JEDNAKO broj TOČKAZAREZ
 # print_naredba -> PRINT broj TOČKAZAREZ | PRINT TEKST TOČKAZAREZ | PRINT NEWLINE TOČKAZAREZ 
 # if_naredba -> IF broj THEN naredbe_lista ENDIF | IF broj THEN naredbe_lista ELSE naredbe_lista ENDIF
-# broj -> aritm usporedba aritm | aritm 
+# broj -> aritm usporedba aritm | aritm | aritm unarni
+# unarni -> PLUSP | MINUSM
 # usporedba -> MANJE | VEĆE | MANJEJ | VEĆEJ | JEDNAKOJ | RAZLIČITO
 # aritm -> član | aritm PLUS član | aritm MINUS član
 # član -> faktor | član PUTA faktor | član KROZ faktor
-# faktor -> BROJ | IME | funkcija_zovi | MINUS faktor | OTV broj ZATV
+# faktor -> BROJ | IME | funkcija_zovi | MINUS faktor | OTV broj ZATV 
 # poziv -> OTV ZATV | OTV argumenti ZATV
 # argumenti -> argument | argumenti ZAREZ argument
 # argument -> aritm | [!KONTEKST] - potrebno za rekurziju
@@ -131,10 +135,12 @@ class P(Parser):
 	def funkcija_zovi(p): 
 		return
 
-	def broj(p) -> 'Usporedba|aritm':
+	def broj(p) -> 'Usporedba|Unarni|aritm':
+		unarni = {T.PLUSP, T.MINUSM}
 		prvi = p.aritm()
 		usporedba = {T.MANJE, T.MANJEJ, T.VEĆE, T.VEĆEJ, T.JEDNAKOJ, T.RAZLIČITO}
 		manje = veće = jednako = većej = manjej = različito = nenavedeno
+		plusp = minusm = nenavedeno
 		if u := p >= usporedba:
 			if u ^ T.MANJE: 
 				manje = u
@@ -149,6 +155,12 @@ class P(Parser):
 			elif u ^ T.RAZLIČITO:
 				različito = u
 			return Usporedba(prvi, p.aritm(), manje, veće, jednako, većej, manjej, različito)
+		elif k := p >= unarni:
+			if k ^ T.PLUSP:
+				plusp = k
+			else:
+				minusm = k
+			return Unarni(prvi, plusp, minusm)
 		else: 
 			return prvi
 
@@ -179,6 +191,7 @@ class P(Parser):
 #				 If: uvjet:broj onda:[naredbe_lista] inače:[naredbe_lista]
 # broj: Usporedba: lijevo:broj desno: broj
 #				   manje: MANJE? veće: VEĆE? jednako: JEDNAKO? manjej: MANJEJ? većej: VEĆEJ? 
+#		Unarni: operator: PLUSP|MINUSM izraz: broj
 #		Osnovna: operacija:PLUS|MINUS|PUTA|KROZ lijevo:broj desno:broj
 #		Suprotan: od: broj
 #		BROJ: Token
@@ -260,16 +273,26 @@ class Osnovna(AST):
 			else: raise o.iznimka('Nazivnik je nula!')
 		else: assert False, f'Nepokrivena binarna operacija {o}'
 
-
-test = '''a = 5+5;
-if 1 >= 5 then print a; else print 3+2; endif
-print newline;
+class Unarni(AST):
+	izraz: 'broj'
+	plusp: 'PLUSP?'
+	minusm: 'MINUSM?'
+	def vrijednost(self):
+		o = self.izraz.vrijednost()
+		if self.plusp != nenavedeno:
+			return (o+1)
+		else:
+			return (o-1)
+		
+test = '''a = 1;
+c = a++;
+print c;
 '''
 
 
-ParsTest =P('''a = 5+5;
-if 1 != 5 then print a; else print 3+2; endif
-print newline;
+ParsTest =P('''a = 1/2;
+c =5+a++;
+print c;
 ''')
 
 #snail(test)
