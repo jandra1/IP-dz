@@ -30,6 +30,21 @@ class T(TipoviTokena):
 	class TEKST(Token):
 		def vrijednost(t): return t.sadržaj[1:-1]
 
+	#Konačni tip podatka (-1,0,1), opcija "možda" - koristi se kada nismo sigurni u vrijednost
+	class MOŽDA(Token):
+		literal = 'možda'
+		def vrijednost(t):
+			return -1
+	class NE(Token):
+		literal = 'ne'
+		def vrijednost(t):
+			return 0
+	class DA(Token):
+		literal = 'da'
+		def vrijednost(t):
+			return 1
+
+
 
 @lexer
 def snail(lex):
@@ -78,7 +93,7 @@ def snail(lex):
 # usporedba -> MANJE | VEĆE | MANJEJ | VEĆEJ | JEDNAKOJ | RAZLIČITO
 # aritm -> član | aritm PLUS član | aritm MINUS član
 # član -> faktor | član PUTA faktor | član KROZ faktor
-# faktor -> BROJ | IME | funkcija_zovi | MINUS faktor | OTV broj ZATV 
+# faktor -> BROJ | IME | funkcija_zovi | MINUS faktor | OTV broj ZATV | DA | NE | MOŽDA | TERNARNI broj ZAREZ broj ZAREZ broj 
 # poziv -> OTV ZATV | OTV argumenti ZATV
 # argumenti -> argument | argumenti ZAREZ argument
 # argument -> broj | [!KONTEKST] - potrebno za rekurziju
@@ -103,7 +118,9 @@ class P(Parser):
 
 	def ret(p):
 		p >= T.RETURN
-		return Return(p >= T.IME)
+		value = p >= T.IME
+		p >> T.TOČKAZAREZ
+		return Return(value)
 
 	def pridruži(p) -> 'Pridruži':
 		varijabla = p >> T.IME
@@ -143,7 +160,10 @@ class P(Parser):
 		p >> T.JEDNAKO
 		p >> T.VOTV
 		nar = p.naredbe_lista()
+		p >> T.RETURN
+		ret = p.broj()
 		p >> T.VZATV
+		atributi = imef, parametrif,ret
 		return Funkcija(*atributi, nar)
 
 	def parametri(p) -> 'IME*':
@@ -167,7 +187,7 @@ class P(Parser):
 		else:
 			return Poziv(rt.funkcije[imef], args)
 
-	def broj(p) -> 'Usporedba|Unarni|aritm':
+	def broj(p) -> 'Ternarni|Usporedba|Unarni|aritm':
 		unarni = {T.PLUSP, T.MINUSM}
 		prvi = p.aritm()
 		usporedba = {T.MANJE, T.MANJEJ, T.VEĆE, T.VEĆEJ, T.JEDNAKOJ, T.RAZLIČITO}
@@ -212,7 +232,14 @@ class P(Parser):
 			zagrada = p.broj()
 			p >> T.ZATV
 			return zagrada
-		else: return p >> {T.BROJ, T.IME}
+		elif p >= T.TERNARNI:
+			prvi = p.broj()
+			p >> T.ZAREZ
+			drugi = p.broj()
+			p >> T.ZAREZ
+			treći = p.broj()
+			return Ternarni(prvi, drugi, treći)
+		else: return p >> {T.BROJ, T.IME, T.DA, T.MOŽDA, T.NE}
 
 
 ### AST
@@ -237,6 +264,20 @@ class Program(AST):
 	def izvrši(program):
 		rt.memorija = Memorija()
 		for naredbe in program.naredbe_lista: naredbe.izvrši()
+
+class Suprotan(AST):
+	od: 'broj'
+	def vrijednost(self):
+		return self.od.vrijednost()
+
+class Ternarni(AST):
+	prvi: 'IME'
+	drugi: 'IME'
+	treći: 'IME'
+	def vrijednost(self):
+		if self.prvi.vrijednost() != 0 and self.drugi.vrijednost() != 0 and self.treći.vrijednost() != 0:
+			return 1
+		else: return 0
 
 class Funkcija(AST):
 	ime: 'IME'
@@ -338,18 +379,20 @@ class Unarni(AST):
 		else:
 			return (o-1)
 		
-test = '''a = 1;
-c = 1+4*(a > 2);
-print c;
+test = '''c = ? 1 2 3;
+print c
 '''
 
 
-ParsTest =P('''a = 1;
-c = a--;
+ParsTest =P('''a = 0;
+b = 2;
+d = 3;
+c = ? a+1, -b-1, d;
 print c;
+def f(c) = {print "bok"; return a;}
 ''')
 
-#snail(test)
+snail(test)
 
 prikaz(ParsTest)
 ParsTest.izvrši()
