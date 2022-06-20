@@ -22,7 +22,7 @@ class T(TipoviTokena):
 	MANJEJ, VEĆEJ, JEDNAKOJ, RAZLIČITO = '<=','>=', '==', '!='
 	NAVODNICI, RETURN, CALL, DEF, INPUT = '"', 'return', 'call', 'def', 'inpt'
 	VOTV, VZATV, ZAREZ = '{},'
-	PLUSP, MINUSM = '++', '--'
+	PLUSP, MINUSM, TERNARNI = '++', '--', '?'
 	class BROJ(Token):
 		def vrijednost(t): return fractions.Fraction(t.sadržaj)
 	class IME(Token):
@@ -81,11 +81,12 @@ def snail(lex):
 # faktor -> BROJ | IME | funkcija_zovi | MINUS faktor | OTV broj ZATV 
 # poziv -> OTV ZATV | OTV argumenti ZATV
 # argumenti -> argument | argumenti ZAREZ argument
-# argument -> aritm | [!KONTEKST] - potrebno za rekurziju
+# argument -> broj | [!KONTEKST] - potrebno za rekurziju
 
 
 class P(Parser):
 	def start(p) -> 'Program': 
+		rt.funkcije = Memorija(redefinicija=False)
 		return Program(p.naredbe_lista())
 
 	def naredbe_lista(p) -> '(pridruži|print_naredba|if_naredba|funkcija_zovi|def_funkcija|inpt)*':
@@ -97,7 +98,12 @@ class P(Parser):
 			elif p > T.CALL: lista.append(p.funkcija_zovi())
 			elif p > T.DEF: lista.append(p.def_funkcija())
 			elif p > T.INPUT: lista.append(p.inpt())
+			elif p > T.RETURN: lista.append(p.ret())
 			else: return lista
+
+	def ret(p):
+		p >= T.RETURN
+		return Return(p >= T.IME)
 
 	def pridruži(p) -> 'Pridruži':
 		varijabla = p >> T.IME
@@ -129,11 +135,37 @@ class P(Parser):
 		p >> T.INPUT
 		return Inpt(p >> T.IME)
 
-	def def_funkcija(p):
-		return
+	def def_funkcija(p) -> 'Funkcija':
+		p >> T.DEF
+		imef = p >= T.IME
+		parametrif = p.parametri()
+		atributi = imef, parametrif
+		p >> T.JEDNAKO
+		p >> T.VOTV
+		nar = p.naredbe_lista()
+		p >> T.VZATV
+		return Funkcija(*atributi, nar)
+
+	def parametri(p) -> 'IME*':
+		p >> T.OTV
+		if p >= T.ZATV: return []
+		param = [p >= T.IME]
+		while p >= T.ZAREZ: param.append(p >= T.IME)
+		p >> T.ZATV
+		return param
 
 	def funkcija_zovi(p): 
-		return
+		p >> T.CALL
+		imef = p >= T.IME
+		p >> T.OTV
+		if p >= T.ZATV: return []
+		args = [p.broj()]
+		while p >= T.ZAREZ: args.append(p.broj())
+		p >> T.ZATV
+		if imef not in rt.funkcije:
+			raise GreškaIzvođenja('Nedefinirana funkcija')
+		else:
+			return Poziv(rt.funkcije[imef], args)
 
 	def broj(p) -> 'Usporedba|Unarni|aritm':
 		unarni = {T.PLUSP, T.MINUSM}
@@ -189,11 +221,13 @@ class P(Parser):
 #				 Pridruži: varijabla:IME što:broj
 #				 Print: tipvar:broj|TEKST|NEWLINE
 #				 If: uvjet:broj onda:[naredbe_lista] inače:[naredbe_lista]
+#				 Funkcija: ime:IME, parametri:[IME], tijelo: [naredbe_lista] vrati:IME
 # broj: Usporedba: lijevo:broj desno: broj
 #				   manje: MANJE? veće: VEĆE? jednako: JEDNAKO? manjej: MANJEJ? većej: VEĆEJ? 
 #		Unarni: operator: PLUSP|MINUSM izraz: broj
 #		Osnovna: operacija:PLUS|MINUS|PUTA|KROZ lijevo:broj desno:broj
 #		Suprotan: od: broj
+#		Poziv: funkcija: Funkcija? argumenti:[broj]
 #		BROJ: Token
 #		IME: Token
 
@@ -203,6 +237,20 @@ class Program(AST):
 	def izvrši(program):
 		rt.memorija = Memorija()
 		for naredbe in program.naredbe_lista: naredbe.izvrši()
+
+class Funkcija(AST):
+	ime: 'IME'
+	parametri: 'IME*'
+	tijelo: 'naredbe*'
+	vrati: 'IME'
+	def izvrši(funkcija, argumenti):
+		lokalni = Memorija(zip(funkcija.parametri, argumenti))
+		try: funkcija.tijelo.izvrši(mem=lokalni, unutar=funkcija)
+		except Povratak as exc: return exc.preneseno
+		else: raise GreškaIzvođenja(f'{funkcija.ime} nije ništa vratila')
+
+class Poziv(AST):
+	pass
 
 class Inpt(AST):
 	varijabla: 'IME'
@@ -228,7 +276,7 @@ class If(AST):
 	inače: 'naredbe*'
 	def izvrši(grananje):
 		b = grananje.uvjet.vrijednost()
-		if b == ~0: sljedeći = grananje.onda
+		if b == 1: sljedeći = grananje.onda
 		elif b == 0: sljedeći = grananje.inače
 		else: raise GreškaIzvođenja('Pogreška u if naredbi')
 		for naredba in sljedeći: naredba.izvrši()
@@ -244,6 +292,10 @@ class Print(AST):
 			if isinstance(t, fractions.Fraction): t = str(t).replace('/', '÷')
 			print(t, end=' ')
 
+class Return(AST):
+	ime: 'broj'
+	def izvrši(self):
+		return ime.vrijednost()
 
 class Usporedba(AST):
 	lijevo: 'broj'
@@ -293,7 +345,7 @@ print c;
 
 
 ParsTest =P('''a = 1;
-c = 1+4*(a < 2);
+c = a--;
 print c;
 ''')
 
@@ -301,5 +353,15 @@ print c;
 
 prikaz(ParsTest)
 ParsTest.izvrši()
+
+
+
+
+
+
+
+
+
+
 
 
