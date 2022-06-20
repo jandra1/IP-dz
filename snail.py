@@ -24,24 +24,24 @@ class T(TipoviTokena):
 	VOTV, VZATV, ZAREZ = '{},'
 	PLUSP, MINUSM, TERNARNI = '++', '--', '?'
 	class BROJ(Token):
-		def vrijednost(t): return fractions.Fraction(t.sadržaj)
+		def vrijednost(self, mem, unutar): return fractions.Fraction(self.sadržaj)
 	class IME(Token):
-		def vrijednost(t): return rt.memorija[t]
+		def vrijednost(self, mem, unutar): return mem[self]
 	class TEKST(Token):
-		def vrijednost(t): return t.sadržaj[1:-1]
+		def vrijednost(self, mem, unutar): return self.sadržaj[1:-1]
 
 	#Konačni tip podatka (-1,0,1), opcija "možda" - koristi se kada nismo sigurni u vrijednost
 	class MOŽDA(Token):
 		literal = 'možda'
-		def vrijednost(t):
+		def vrijednost(self, mem, unutar):
 			return -1
 	class NE(Token):
 		literal = 'ne'
-		def vrijednost(t):
+		def vrijednost(self, mem, unutar):
 			return 0
 	class DA(Token):
 		literal = 'da'
-		def vrijednost(t):
+		def vrijednost(self, mem, unutar):
 			return 1
 
 
@@ -79,62 +79,81 @@ def snail(lex):
 		else: yield lex.literal(T)
 
 ### BKG za jezik:
-# start = program = naredbe_lista -> naredbe | naredbe_lista naredbe 
-# naredbe -> pridruži | print_naredba | if_naredba | funkcija_zovi | def_funkcija | inpt
-# def_funkcija -> DEF IME OTV parametri ZATV JEDNAKO VOTV naredbe_lista RETURN argument VZATV
-# funkcija_zovi -> CALL IME poziv
+# start = program = funkcija | funkcija program
+# naredbe_lista -> naredbe | naredbe_lista TOČKAZAREZ naredbe 
+# naredbe -> pridruži | print_naredba | if_naredba | inpt | RETURN argument | VOTV VZATV | VOTV naredbe_lista VZATV
+# funkcija -> IME OTV parametri ZATV JEDNAKO VOTV naredbe_lista VZATV
 # parametri -> '' | IME | parametri ZAREZ IME
 # inpt -> INPUT IME
-# pridruži -> IME JEDNAKO broj TOČKAZAREZ
-# print_naredba -> PRINT broj TOČKAZAREZ | PRINT TEKST TOČKAZAREZ | PRINT NEWLINE TOČKAZAREZ 
+# pridruži -> IME JEDNAKO broj 
+# print_naredba -> PRINT broj | PRINT TEKST | PRINT NEWLINE  
 # if_naredba -> IF broj THEN naredbe_lista ENDIF | IF broj THEN naredbe_lista ELSE naredbe_lista ENDIF
 # broj -> aritm usporedba aritm | aritm | aritm unarni
 # unarni -> PLUSP | MINUSM
 # usporedba -> MANJE | VEĆE | MANJEJ | VEĆEJ | JEDNAKOJ | RAZLIČITO
 # aritm -> član | aritm PLUS član | aritm MINUS član
 # član -> faktor | član PUTA faktor | član KROZ faktor
-# faktor -> BROJ | IME | funkcija_zovi | MINUS faktor | OTV broj ZATV | DA | NE | MOŽDA | TERNARNI broj ZAREZ broj ZAREZ broj 
+# faktor -> BROJ | IME | IME poziv | MINUS faktor | OTV broj ZATV | DA | NE | MOŽDA | TERNARNI broj ZAREZ broj ZAREZ broj 
 # poziv -> OTV ZATV | OTV argumenti ZATV
 # argumenti -> argument | argumenti ZAREZ argument
 # argument -> broj | [!KONTEKST] - potrebno za rekurziju
 
 
 class P(Parser):
-	def start(p) -> 'Program': 
-		rt.funkcije = Memorija(redefinicija=False)
-		return Program(p.naredbe_lista())
+	def program(p) -> 'Memorija': 
+		p.funkcije = Memorija(redefinicija=False)
+		while not p > KRAJ:
+			funkcija = p.funkcija()
+			p.funkcije[funkcija.ime] = funkcija
+		return p.funkcije
 
-	def naredbe_lista(p) -> '(pridruži|print_naredba|if_naredba|funkcija_zovi|def_funkcija|inpt)*':
-		lista = []
-		while ...:
-			if p > T.IME: lista.append(p.pridruži())
-			elif p > T.PRINT: lista.append(p.print_naredba())
-			elif p > T.IF: lista.append(p.if_naredba())
-			elif p > T.CALL: lista.append(p.funkcija_zovi())
-			elif p > T.DEF: lista.append(p.def_funkcija())
-			elif p > T.INPUT: lista.append(p.inpt())
-			elif p > T.RETURN: lista.append(p.ret())
-			else: return lista
+	def naredbe_lista(p) -> 'Blok|naredbe':
+		p >> T.VOTV
+		if p >= T.ZATV: return Blok([])
+		n = [p.naredbe()]
+		while p >= T.TOČKAZAREZ and not p > T.VZATV: n.append(p.naredbe())
+		p >> T.VZATV
+		return Blok.ili_samo(n)
+
+	def naredbe(p) -> '(Pridruži|Vrati|print_naredba|if_naredba|inpt)*':
+		if p > T.PRINT: return p.print_naredba()
+		elif p > T.IF: return p.if_naredba()
+		elif p > T.INPUT: return p.inpt()
+		elif p > T.VOTV: return p.naredbe_lista()
+		elif p >= T.RETURN: return Vrati(p.broj())
+		else: 
+			varijabla = p.ime()
+			p >> T.JEDNAKO
+			pridruženo = p.broj()
+			return Pridruži(varijabla, pridruženo)
+		
+
+	def funkcija(p) -> 'Funkcija':
+		atributi = p.imef, p.parametrif = p.ime(), p.parametri()
+		p >> T.JEDNAKO
+		return Funkcija(*atributi, p.naredbe())
+
+	def ime(p) -> 'IME': return p >> T.IME
+
+	def možda_poziv(p, ime) -> 'Poziv|ime':
+		if ime in p.funkcije:
+			funkcija = p.funkcije[ime]
+			return Poziv(funkcija, p.argumenti(funkcija.parametri))
+		elif ime == p.imef:
+			return Poziv(nenavedeno, p.argumenti(p.parametrif))
+		else: return ime
 
 	def ret(p):
 		p >= T.RETURN
 		value = p >= T.IME
-		p >> T.TOČKAZAREZ
 		return Return(value)
 
-	def pridruži(p) -> 'Pridruži':
-		varijabla = p >> T.IME
-		p >> T.JEDNAKO
-		pridruženo = p.broj()
-		p >> T.TOČKAZAREZ
-		return Pridruži(varijabla, pridruženo)
 
 	def print_naredba(p) -> 'Print':
 		p >> T.PRINT
 		if p > {T.BROJ, T.IME}: tipvar = p.broj()
 		elif p > T.NEWLINE: tipvar = p >> T.NEWLINE
 		else: tipvar = p >> T.TEKST
-		p >> T.TOČKAZAREZ
 		return Print(tipvar)
 
 	def if_naredba(p) -> 'If':
@@ -152,40 +171,13 @@ class P(Parser):
 		p >> T.INPUT
 		return Inpt(p >> T.IME)
 
-	def def_funkcija(p) -> 'Funkcija':
-		p >> T.DEF
-		imef = p >= T.IME
-		parametrif = p.parametri()
-		atributi = imef, parametrif
-		p >> T.JEDNAKO
-		p >> T.VOTV
-		nar = p.naredbe_lista()
-		p >> T.RETURN
-		ret = p.broj()
-		p >> T.VZATV
-		atributi = imef, parametrif,ret
-		return Funkcija(*atributi, nar)
-
-	def parametri(p) -> 'IME*':
+	def parametri(p) -> 'ime*':
 		p >> T.OTV
 		if p >= T.ZATV: return []
-		param = [p >= T.IME]
-		while p >= T.ZAREZ: param.append(p >= T.IME)
+		param = [p.ime()]
+		while p >= T.ZAREZ: param.append(p.ime())
 		p >> T.ZATV
 		return param
-
-	def funkcija_zovi(p): 
-		p >> T.CALL
-		imef = p >= T.IME
-		p >> T.OTV
-		if p >= T.ZATV: return []
-		args = [p.broj()]
-		while p >= T.ZAREZ: args.append(p.broj())
-		p >> T.ZATV
-		if imef not in rt.funkcije:
-			raise GreškaIzvođenja('Nedefinirana funkcija')
-		else:
-			return Poziv(rt.funkcije[imef], args)
 
 	def broj(p) -> 'Ternarni|Usporedba|Unarni|aritm':
 		unarni = {T.PLUSP, T.MINUSM}
@@ -226,12 +218,13 @@ class P(Parser):
 		while op := p >= {T.PUTA, T.KROZ}: t = Osnovna(op, t, p.faktor())
 		return t
 
-	def faktor(p) -> 'Suprotan|broj|BROJ|IME':
+	def faktor(p) -> 'Suprotan|možda_poziv|broj|BROJ|IME':
 		if p >= T.MINUS: return Suprotan(p.faktor())
 		elif p >= T.OTV:
 			zagrada = p.broj()
 			p >> T.ZATV
 			return zagrada
+		elif ar := p >= T.IME: return p.možda_poziv(ar)
 		elif p >= T.TERNARNI:
 			prvi = p.broj()
 			p >> T.ZAREZ
@@ -241,14 +234,17 @@ class P(Parser):
 			return Ternarni(prvi, drugi, treći)
 		else: return p >> {T.BROJ, T.IME, T.DA, T.MOŽDA, T.NE}
 
+def izvrši(funkcije, *argv):
+    print('Program je vratio:', funkcije['program'].pozovi(argv))
 
 ### AST
-# Program: naredbe_lista: [naredbe]
+# Funkcija: ime: IME parametri:[IME] tijelo:naredbe_lista
 # naredbe_lista: Inpt: varijabla:IME
 #				 Pridruži: varijabla:IME što:broj
 #				 Print: tipvar:broj|TEKST|NEWLINE
 #				 If: uvjet:broj onda:[naredbe_lista] inače:[naredbe_lista]
-#				 Funkcija: ime:IME, parametri:[IME], tijelo: [naredbe_lista] vrati:IME
+#				 Vrati: što:izraz
+#                Blok: naredbe:[naredbe]
 # broj: Usporedba: lijevo:broj desno: broj
 #				   manje: MANJE? veće: VEĆE? jednako: JEDNAKO? manjej: MANJEJ? većej: VEĆEJ? 
 #		Unarni: operator: PLUSP|MINUSM izraz: broj
@@ -258,44 +254,60 @@ class P(Parser):
 #		BROJ: Token
 #		IME: Token
 
-
-class Program(AST): 
-	naredbe_lista: 'naredbe*'
-	def izvrši(program):
-		rt.memorija = Memorija()
-		for naredbe in program.naredbe_lista: naredbe.izvrši()
-
 class Suprotan(AST):
 	od: 'broj'
-	def vrijednost(self):
+	def vrijednost(self, mem, unutar):
 		return self.od.vrijednost()
 
 class Ternarni(AST):
 	prvi: 'IME'
 	drugi: 'IME'
 	treći: 'IME'
-	def vrijednost(self):
+	def vrijednost(self, mem, unutar):
 		if self.prvi.vrijednost() != 0 and self.drugi.vrijednost() != 0 and self.treći.vrijednost() != 0:
 			return 1
 		else: return 0
 
+class Blok(AST):
+	naredbe: 'naredba*'
+	def izvrši(blok, mem, unutar):
+		for naredba in blok.naredbe: naredba.izvrši(mem, unutar)
+
+class Vrati(AST):
+	što: 'izraz'
+	def izvrši(self, mem, unutar):
+		raise Povratak(self.što.vrijednost(mem, unutar))
+
+
 class Funkcija(AST):
-	ime: 'IME'
-	parametri: 'IME*'
-	tijelo: 'naredbe*'
-	vrati: 'IME'
-	def izvrši(funkcija, argumenti):
-		lokalni = Memorija(zip(funkcija.parametri, argumenti))
-		try: funkcija.tijelo.izvrši(mem=lokalni, unutar=funkcija)
-		except Povratak as exc: return exc.preneseno
-		else: raise GreškaIzvođenja(f'{funkcija.ime} nije ništa vratila')
+    ime: 'IME'
+    parametri: 'IME*'
+    tijelo: 'naredba'
+    def pozovi(funkcija, argumenti):
+        lokalni = Memorija(zip(funkcija.parametri, argumenti))
+        try: funkcija.tijelo.izvrši(mem=lokalni, unutar=funkcija)
+        except Povratak as exc: return exc.preneseno
+        else: raise GreškaIzvođenja(f'{funkcija.ime} nije ništa vratila')
 
 class Poziv(AST):
-	pass
+    funkcija: 'Funkcija?'
+    argumenti: 'izraz*'
+    def vrijednost(poziv, mem, unutar):
+        pozvana = poziv.funkcija
+        if pozvana is nenavedeno: pozvana = unutar  # rekurzivni poziv
+        argumenti = [a.vrijednost(mem, unutar) for a in poziv.argumenti]
+        return pozvana.pozovi(argumenti)
+
+    def za_prikaz(poziv):  # samo za ispis, da se ne ispiše čitava funkcija
+        r = {'argumenti': poziv.argumenti}
+        if poziv.funkcija is nenavedeno: r['*rekurzivni'] = True
+        else: r['*ime'] = poziv.funkcija.ime
+        return r
+
 
 class Inpt(AST):
 	varijabla: 'IME'
-	def izvrši(unos):
+	def izvrši(unos, mem, unutar):
 		v = unos.varijabla
 		prompt = f'\t{v.sadržaj}? '
 		while ...:
@@ -308,14 +320,14 @@ class Inpt(AST):
 class Pridruži(AST):
 	varijabla: 'IME'
 	što: 'broj'
-	def izvrši(self):
-		rt.memorija[self.varijabla] = self.što.vrijednost()
+	def izvrši(self, mem, unutar):
+		rt.memorija[self.varijabla] = self.što.vrijednost(mem, unutar)
 
 class If(AST): 
 	uvjet: 'broj'
 	onda: 'naredbe*'
 	inače: 'naredbe*'
-	def izvrši(grananje):
+	def izvrši(grananje, mem, unutar):
 		b = grananje.uvjet.vrijednost()
 		if b == 1: sljedeći = grananje.onda
 		elif b == 0: sljedeći = grananje.inače
@@ -326,17 +338,13 @@ class If(AST):
 
 class Print(AST):
 	tipvar: 'broj|TEKST|NEWLINE'
-	def izvrši(ispis):
+	def izvrši(ispis, mem, unutar):
 		if ispis.tipvar ^ T.NEWLINE: print()
 		else:
-			t = ispis.tipvar.vrijednost()
+			t = ispis.tipvar.vrijednost(mem, unutar)
 			if isinstance(t, fractions.Fraction): t = str(t).replace('/', '÷')
 			print(t, end=' ')
 
-class Return(AST):
-	ime: 'broj'
-	def izvrši(self):
-		return ime.vrijednost()
 
 class Usporedba(AST):
 	lijevo: 'broj'
@@ -347,8 +355,8 @@ class Usporedba(AST):
 	većej: 'VEĆEJ?'
 	manjej: 'MANJEJ?'
 	različito: 'RAZLIČITO?'
-	def vrijednost(self):
-		l, d = self.lijevo.vrijednost(), self.desno.vrijednost()
+	def vrijednost(self, mem, unutar):
+		l, d = self.lijevo.vrijednost(mem, unutar), self.desno.vrijednost(mem, unutar)
 		if ((self.manje and l < d) or (self.jednako and l == d) or (self.veće and l > d) or 
 			(self.manjej and l <= d) or (self.većej and l >= d) or (self.različito and l != d)): return 1
 		else: return 0
@@ -357,8 +365,8 @@ class Osnovna(AST):
 	operacija: 'T'
 	lijevo: 'broj'
 	desno: 'broj'
-	def vrijednost(self):
-		l, d = self.lijevo.vrijednost(), self.desno.vrijednost()
+	def vrijednost(self, mem, unutar):
+		l, d = self.lijevo.vrijednost(mem, unutar), self.desno.vrijednost(mem, unutar)
 		o = self.operacija
 		if o ^ T.PLUS: return l + d
 		elif o ^ T.MINUS: return l - d
@@ -372,30 +380,26 @@ class Unarni(AST):
 	izraz: 'broj'
 	plusp: 'PLUSP?'
 	minusm: 'MINUSM?'
-	def vrijednost(self):
-		o = self.izraz.vrijednost()
+	def vrijednost(self, mem, unutar):
+		o = self.izraz.vrijednost(mem, unutar)
 		if self.plusp != nenavedeno:
 			return (o+1)
 		else:
 			return (o-1)
+
+class Povratak(NelokalnaKontrolaToka): """Signal koji šalje naredba vrati."""
 		
 test = '''c = ? 1 2 3;
 print c
 '''
 
 
-ParsTest =P('''a = 0;
-b = 2;
-d = 3;
-c = ? a+1, -b-1, d;
-print c;
-def f(c) = {print "bok"; return a;}
-''')
+ParsTest =P('''program() = {print "bok"; return 4;}''')
 
 snail(test)
 
 prikaz(ParsTest)
-ParsTest.izvrši()
+izvrši(ParsTest)
 
 
 
