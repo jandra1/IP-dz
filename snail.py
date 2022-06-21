@@ -336,7 +336,7 @@ class If(AST):
 	inače: 'naredbe*'
 	def izvrši(grananje, mem, unutar):
 		b = grananje.uvjet.vrijednost(mem, unutar)
-		if b == 1: sljedeći = grananje.onda.izvrši(mem,unutar)
+		if b != 0: sljedeći = grananje.onda.izvrši(mem,unutar)
 		elif b == 0: sljedeći = grananje.inače.izvrši(mem,unutar)
 		else: raise GreškaIzvođenja('Pogreška u if naredbi')
 
@@ -395,6 +395,10 @@ class Unarni(AST):
 
 class Povratak(NelokalnaKontrolaToka): """Signal koji šalje naredba vrati."""
 		
+###################################################################################################
+###################################################################################################
+###################################################################################################
+# TESTNI PRIMJERI 
 
 PrviPrimjer =P('''//rekurzivna funkcija za računanje faktorijela
 fakt(n) = {
@@ -414,27 +418,98 @@ inpt a;
 return fakt(a);
 }''')
 
-prikaz(PrviPrimjer)
+#odkomentirat donju liniju za prikaz stabla
+#prikaz(PrviPrimjer)
 izvrši(PrviPrimjer)
 
 
-DrugiPrimjer =P('''fakt(n) = {
-if n == 0 then 
+DrugiPrimjer =P('''//rekurzivna funkcija koja računa sumu od 0 do n
+sum(n) = {
+if n != 0 then 
 {
-return 1
+//sve dok je različito od nula pozivamo rekurzivno
+return n+sum(n-1)
 } 
 else 
 {
-return n*fakt(n-1)} 
+return n} 
 endif
 }
 
 main() = { 
-return fakt(5);
+#u ovom programu računamo sumu brojeva
+od 1 do nekog broja a#
+print "unesite broj:";
+inpt a;
+print "suma od 1 do a jednaka je:";
+return sum(a);
 }''')
 
-prikaz(DrugiPrimjer)
+#odkomentirati donju liniju za prikaz:
+#prikaz(DrugiPrimjer)
+
 izvrši(DrugiPrimjer)
+
+TrećiPrimjer =P('''division(a,b) = {
+if a < b then{
+return a;	
+}
+else{
+return division(a-b,b);
+}
+endif
+}
+
+isPrime(n,i) = {
+
+   if n < 2 then {
+        return možda; 
+    } 
+   
+   else {
+
+        if division(n,i) == 0 then {
+           return ne;
+        }
+        else {
+
+             if i*i > n then {
+                return da;}
+             else {
+             	return isPrime(n,i+1);
+             }
+             endif
+             
+        }
+        endif
+    }
+
+   endif
+
+}
+
+
+main() = { 
+s = isPrime(17,2);
+if s != da then {
+	print "to nije prosti broj";
+}
+else {
+	if s == možda then {
+	   print "broj nije prirodni";
+	}
+	else {
+       print "broj je prost";
+	}
+	endif
+}
+endif;
+return s;
+}''')
+
+#odkomentirati donju liniju za prikaz stabla
+#prikaz(TrećiPrimjer)
+izvrši(TrećiPrimjer)
 
 
 
