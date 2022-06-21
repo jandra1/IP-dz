@@ -3,9 +3,7 @@ Domaća zadaća iz kolegija Interpretacija programa.
 Napravili: Ivona Čižić, Barbara Posavec, Luka Jandrijević
 
 
-TODO: - osmislit novi konačni ili beskonačni tip podatka koji nije uobičajen u drugim programskim jezicima
-	  - unarne, binarne, terarne operatore nad tim tipom
-	  - implicitno pretvaranje među tipovima
+TODO: - implicitno pretvaranje među tipovima
 
 
 Overleaf link za dokumentaciju: https://www.overleaf.com/3936359378pqggjhqxwqmw
@@ -142,6 +140,15 @@ class P(Parser):
 		elif ime == p.imef:
 			return Poziv(nenavedeno, p.argumenti(p.parametrif))
 		else: return ime
+
+	def argumenti(p, parametri) -> 'broj':
+		arg = []
+		p >> T.OTV
+		for i, parametar in enumerate(parametri):
+			if i: p >> T.ZAREZ
+			arg.append(p.broj())
+		p >> T.ZATV
+		return arg
 
 	def ret(p):
 		p >= T.RETURN
@@ -388,19 +395,46 @@ class Unarni(AST):
 
 class Povratak(NelokalnaKontrolaToka): """Signal koji šalje naredba vrati."""
 		
-test = '''c = ? 1 2 3;
-print c
-'''
+
+PrviPrimjer =P('''//rekurzivna funkcija za računanje faktorijela
+fakt(n) = {
+if n == 0 then 
+{
+return 1
+} 
+else 
+{
+return n*fakt(n-1)} 
+endif
+}
+
+main() = {
+print "unesite broj za koji želite izračunat faktorijel:";
+inpt a;
+return fakt(a);
+}''')
+
+prikaz(PrviPrimjer)
+izvrši(PrviPrimjer)
 
 
-ParsTest =P('''main() = {if 1 > 4 then {a = 4; print a;} else {b = 4; print b;} endif; return 1;}''')
+DrugiPrimjer =P('''fakt(n) = {
+if n == 0 then 
+{
+return 1
+} 
+else 
+{
+return n*fakt(n-1)} 
+endif
+}
 
-snail(test)
+main() = { 
+return fakt(5);
+}''')
 
-prikaz(ParsTest)
-izvrši(ParsTest)
-
-
+prikaz(DrugiPrimjer)
+izvrši(DrugiPrimjer)
 
 
 
