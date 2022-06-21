@@ -415,6 +415,7 @@ endif
 main() = {
 print "unesite broj za koji želite izračunat faktorijel:";
 inpt a;
+print newline;
 return fakt(a);
 }''')
 
@@ -440,9 +441,26 @@ main() = {
 #u ovom programu računamo sumu brojeva
 od 1 do nekog broja a#
 print "unesite broj:";
+print newline;
 inpt a;
-print "suma od 1 do a jednaka je:";
-return sum(a);
+print "suma od 1 do a jednaka je: ";
+print sum(a);
+print newline;
+print "sada unesite 3 broja da vidimo je li neki od njih 0: ";
+print newline;
+inpt x;
+inpt y;
+inpt z;
+res = ? x, y, z;
+if res == 0 then{
+	print "jedan od brojeva je 0";
+}
+else {
+	print "ni jedan broj nije jednak 0";
+}
+endif;
+print newline;
+return 0;
 }''')
 
 #odkomentirati donju liniju za prikaz:
@@ -489,8 +507,10 @@ isPrime(n,i) = {
 }
 
 
-main() = { 
-s = isPrime(17,2);
+main() = {
+print "unesi broj za provjeru prostosti: ";
+inpt t; 
+s = isPrime(t,2);
 if s == ne then {
 	print "to nije prosti broj";
 }
@@ -504,6 +524,7 @@ else {
 	endif
 }
 endif;
+print newline;
 return s;
 }''')
 
