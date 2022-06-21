@@ -264,14 +264,14 @@ def izvrši(funkcije, *argv):
 class Suprotan(AST):
 	od: 'broj'
 	def vrijednost(self, mem, unutar):
-		return self.od.vrijednost()
+		return -self.od.vrijednost(mem, unutar)
 
 class Ternarni(AST):
 	prvi: 'IME'
 	drugi: 'IME'
 	treći: 'IME'
 	def vrijednost(self, mem, unutar):
-		if self.prvi.vrijednost() != 0 and self.drugi.vrijednost() != 0 and self.treći.vrijednost() != 0:
+		if self.prvi.vrijednost(mem, unutar) != 0 and self.drugi.vrijednost(mem, unutar) != 0 and self.treći.vrijednost(mem, unutar) != 0:
 			return 1
 		else: return 0
 
@@ -476,7 +476,7 @@ isPrime(n,i) = {
              if i*i > n then {
                 return da;}
              else {
-             	return isPrime(n,i+1);
+             	return isPrime(n,i++);
              }
              endif
              
@@ -491,7 +491,7 @@ isPrime(n,i) = {
 
 main() = { 
 s = isPrime(17,2);
-if s != da then {
+if s == ne then {
 	print "to nije prosti broj";
 }
 else {
